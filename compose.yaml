@@ -1,0 +1,32 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      SVL_API_TOKEN: ${SVL_API_TOKEN:?Set a random API token of at least 32 characters}
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: ["./.lake:/data"]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 64
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      target: worker
+    network_mode: none
+    volumes: ["./.lake:/data", "./.models:/models:ro"]
+    read_only: true
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 128
+    restart: unless-stopped
+

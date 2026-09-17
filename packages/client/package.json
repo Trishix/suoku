@@ -1,0 +1,17 @@
+{
+  "name": "@semantic-video-lake/client",
+  "version": "0.1.0-alpha.1",
+  "description": "Typed client for the optional Semantic Video Lake service",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "generate": "openapi-typescript ../../schema/openapi.json -o src/schema.ts",
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": { "typescript": "^5.8.3", "openapi-typescript": "^7.6.1" }
+}

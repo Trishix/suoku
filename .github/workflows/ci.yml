@@ -1,0 +1,33 @@
+name: checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  python:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install decoder
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update && sudo apt-get install -y ffmpeg; else brew install ffmpeg; fi
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e '.[server,dev]'
+      - run: .venv/bin/python -m ruff check src tests scripts
+      - run: .venv/bin/python -m pytest -q
+      - run: .venv/bin/python scripts/export_openapi.py
+      - run: npm ci --prefix packages/client
+      - run: npm run generate --prefix packages/client
+      - run: git diff --exit-code -- schema/openapi.json packages/client/src/schema.ts
+      - run: npm test --prefix packages/client
+      - run: .venv/bin/python -m build
+      - run: npm pack --dry-run --prefix packages/client
+

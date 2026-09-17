@@ -1,0 +1,10 @@
+.git
+.venv
+.models
+.lake
+.superpowers
+**/node_modules
+**/__pycache__
+**/dist
+.env
+
