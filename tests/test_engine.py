@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from semantic_video_lake.engine import VideoLake
+from semantic_video_lake.engine import VideoLake, _recorded_at
 from semantic_video_lake.types import Frame, LakeError, MediaInfo, SearchFilters
 
 
@@ -25,6 +25,15 @@ class DeterministicEmbedder:
             "green": np.array([0.01, 1.0, 0.01]),
             "blue": np.array([0.01, 0.01, 1.0]),
         }.get(text, np.ones(3))
+
+
+class CountingEmbedder(DeterministicEmbedder):
+    def __init__(self) -> None:
+        self.frame_calls: list[tuple[int, ...]] = []
+
+    def embed_frames(self, frames: list[Frame]) -> np.ndarray:
+        self.frame_calls.append(tuple(frame.timestamp_ms for frame in frames))
+        return super().embed_frames(frames)
 
 
 class Reader:
@@ -111,6 +120,26 @@ def test_resume_after_iterator_interruption_is_idempotent(tmp_path: Path, source
         assert resumed.status(first.asset_id)["recorded_at"] == "2026-01-01T00:00:00.000Z"
 
 
+def test_resume_after_vector_commit_before_checkpoint_is_idempotent(
+    tmp_path: Path, source: Path
+) -> None:
+    lake_path = tmp_path / "lake"
+    embedder = CountingEmbedder()
+    lake = VideoLake.open(lake_path, embedder, reader=Reader(), batch_size=2)
+    lake.catalog.checkpoint = lambda *args: (_ for _ in ()).throw(RuntimeError("crash"))  # type: ignore[method-assign]
+    assert_error("media_error", lambda: next(lake.ingest_steps(source)))
+    assert lake._table.count_rows() == 2
+    generation = lake.catalog.connection.execute("SELECT processed FROM generations").fetchone()
+    assert generation["processed"] == 0
+    lake.close()
+
+    with VideoLake.open(lake_path, embedder, reader=Reader(), batch_size=2) as resumed:
+        asset_id = resumed.ingest(source)
+        assert resumed.status(asset_id)["processed"] == 4
+        assert resumed._table.count_rows() == 4
+    assert embedder.frame_calls == [(0, 1000), (0, 1000), (2000, 3000)]
+
+
 def test_failed_replacement_does_not_replace_active_generation(
     tmp_path: Path, source: Path
 ) -> None:
@@ -171,6 +200,30 @@ def test_filters_use_matched_instant_and_unknown_times_are_excluded(
         assert lake.search("red", filters=SearchFilters(camera_id="missing")) == []
 
 
+def test_time_conversion_handles_extremes_and_pre_epoch_submilliseconds() -> None:
+    assert _recorded_at("1969-12-31T23:59:59.999500Z") == (
+        "1969-12-31T23:59:59.999Z",
+        -1,
+    )
+    assert _recorded_at("9999-12-31T23:59:59Z") == (
+        "9999-12-31T23:59:59.000Z",
+        253402300799000,
+    )
+    assert_error("invalid_time", _recorded_at, "9999-12-31T23:59:59-23:59")
+
+
+def test_dedup_uses_bounded_playback_overlap_and_refills(tmp_path: Path, source: Path) -> None:
+    reader = Reader()
+    reader.timestamps = [0, 9000, 18000]
+    reader.colours = [(99, 0, 0), (255, 0, 0), (180, 0, 0)]
+    reader.probe = lambda path: MediaInfo(23000, 2, 2, "fixture")  # type: ignore[method-assign]
+    with VideoLake.open(tmp_path / "lake", DeterministicEmbedder(), reader=reader) as lake:
+        lake.ingest(source)
+        matches = lake.search("red", limit=2)
+        assert [match.timestamp_ms for match in matches] == [0, 18000]
+        assert matches[0].score >= matches[1].score
+
+
 def test_remove_purge_and_source_preservation(tmp_path: Path, source: Path) -> None:
     with VideoLake.open(tmp_path / "lake", DeterministicEmbedder(), reader=Reader()) as lake:
         asset_id = lake.ingest(source)
@@ -206,6 +259,43 @@ def test_frame_vector_validation_does_not_checkpoint(tmp_path: Path, source: Pat
     with VideoLake.open(tmp_path / "lake", embedder, reader=Reader(), batch_size=2) as lake:
         iterator = lake.ingest_steps(source)
         assert_error("invalid_embedding", lambda: next(iterator))
+
+
+def test_mutated_embedder_profile_is_rejected_before_and_after_adapter_calls(
+    tmp_path: Path, source: Path
+) -> None:
+    embedder = DeterministicEmbedder()
+    with VideoLake.open(tmp_path / "lake", embedder, reader=Reader(), batch_size=2) as lake:
+        embedder.dimensions = 4
+        assert_error("incompatible_profile", lambda: next(lake.ingest_steps(source)))
+        embedder.dimensions = 3
+
+        original_frames = embedder.embed_frames
+
+        def mutate_during_frames(frames: list[Frame]) -> np.ndarray:
+            result = original_frames(frames)
+            embedder.fingerprint = "changed-after-open"
+            return result
+
+        embedder.embed_frames = mutate_during_frames  # type: ignore[method-assign]
+        assert_error("incompatible_profile", lambda: next(lake.ingest_steps(source)))
+        assert lake._table.count_rows() == 0
+
+        embedder.fingerprint = "test-colour-v1"
+        embedder.embed_frames = original_frames  # type: ignore[method-assign]
+        lake.ingest(source)
+        original_query = embedder.embed_query
+
+        def mutate_during_query(text: str) -> np.ndarray:
+            result = original_query(text)
+            embedder.fingerprint = "changed-after-open"
+            return result
+
+        embedder.embed_query = mutate_during_query  # type: ignore[method-assign]
+        assert_error("incompatible_profile", lake.search, "red")
+        embedder.fingerprint = "test-colour-v1"
+        embedder.embed_query = original_query  # type: ignore[method-assign]
+        assert lake.search("red")[0].model_fingerprint == "test-colour-v1"
 
 
 def test_validation_profile_and_lifetime_lock(tmp_path: Path, source: Path) -> None:

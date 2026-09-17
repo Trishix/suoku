@@ -27,6 +27,7 @@ from .types import (
 
 _ID = re.compile(r"^[0-9a-f]{32}$")
 _MAX_TEXT = 4096
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def _asset_id(value: str) -> str:
@@ -42,15 +43,17 @@ def _recorded_at(value: str | None, *, field: str = "recorded_at") -> tuple[str 
         raise LakeError("invalid_time", f"{field} must be an ISO 8601 timestamp with a timezone")
     try:
         parsed = datetime.fromisoformat(value.strip())
-    except ValueError as exc:
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise LakeError("invalid_time", f"{field} must include a timezone")
+        parsed = parsed.astimezone(UTC)
+    except (ValueError, OverflowError) as exc:
         raise LakeError(
-            "invalid_time", f"{field} must be an ISO 8601 timestamp with a timezone"
+            "invalid_time", f"{field} must be an ISO 8601 timestamp with a valid timezone"
         ) from exc
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise LakeError("invalid_time", f"{field} must include a timezone")
-    parsed = parsed.astimezone(UTC)
     normalized = parsed.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-    return normalized, int(parsed.timestamp() * 1000)
+    delta = parsed - _EPOCH
+    milliseconds = (delta.days * 86_400 + delta.seconds) * 1000 + delta.microseconds // 1000
+    return normalized, milliseconds
 
 
 def _camera_id(value: str | None) -> str | None:
@@ -106,6 +109,8 @@ class VideoLake:
         interval_ms: int,
         batch_size: int,
         lock: FileLock,
+        model_fingerprint: str,
+        dimensions: int,
     ) -> None:
         self.path = path
         self.embedder = embedder
@@ -114,6 +119,9 @@ class VideoLake:
         self.batch_size = batch_size
         self._lock = lock
         self._closed = False
+        self._model_fingerprint = model_fingerprint
+        self._dimensions = dimensions
+        self._assert_profile()
         self.catalog = Catalog(path / "catalog.sqlite3")
         self._db = lancedb.connect(path / "lance")
         schema = pa.schema(
@@ -127,9 +135,7 @@ class VideoLake:
                 pa.field("model_fingerprint", pa.string(), nullable=False),
                 pa.field("camera_id", pa.string()),
                 pa.field("recorded_at_ms", pa.int64()),
-                pa.field(
-                    "vector", pa.list_(pa.float32(), int(embedder.dimensions)), nullable=False
-                ),
+                pa.field("vector", pa.list_(pa.float32(), dimensions), nullable=False),
             ]
         )
         if "frames" in self._db.list_tables().tables:
@@ -169,7 +175,16 @@ class VideoLake:
                 from .media import FFmpegReader
 
                 reader = FFmpegReader()
-            instance = cls(lake_path, embedder, reader, interval_ms, batch_size, lock)
+            instance = cls(
+                lake_path,
+                embedder,
+                reader,
+                interval_ms,
+                batch_size,
+                lock,
+                fingerprint,
+                dimensions,
+            )
             expected = {
                 "format_version": "1",
                 "model_fingerprint": fingerprint,
@@ -200,6 +215,30 @@ class VideoLake:
     def _ensure_open(self) -> None:
         if self._closed:
             raise LakeError("lake_closed", "lake is closed")
+
+    def _assert_profile(self) -> None:
+        if (
+            getattr(self.embedder, "fingerprint", None) != self._model_fingerprint
+            or getattr(self.embedder, "dimensions", None) != self._dimensions
+        ):
+            raise LakeError(
+                "incompatible_profile",
+                "embedder profile changed after the lake was opened",
+            )
+
+    def _embed_frames(self, frames: list[Frame]) -> object:
+        self._assert_profile()
+        try:
+            return self.embedder.embed_frames(frames)
+        finally:
+            self._assert_profile()
+
+    def _embed_query(self, text: str) -> object:
+        self._assert_profile()
+        try:
+            return self.embedder.embed_query(text)
+        finally:
+            self._assert_profile()
 
     def close(self) -> None:
         if self._closed:
@@ -317,8 +356,8 @@ class VideoLake:
             if current is None or current["state"] == "removed":
                 raise LakeError("asset_removed", "removed asset cannot be resumed")
             vectors = _normalized_vector(
-                self.embedder.embed_frames(list(frames)),
-                int(self.embedder.dimensions),
+                self._embed_frames(list(frames)),
+                self._dimensions,
                 rows=len(frames),
             )
             rows = []
@@ -331,7 +370,7 @@ class VideoLake:
                         "timestamp_ms": int(frame.timestamp_ms),
                         "duration_ms": int(generation["duration_ms"]),
                         "source_hash": source_hash,
-                        "model_fingerprint": self.embedder.fingerprint,
+                        "model_fingerprint": self._model_fingerprint,
                         "camera_id": camera_id,
                         "recorded_at_ms": recorded_at_ms,
                         "vector": vector.tolist(),
@@ -414,7 +453,7 @@ class VideoLake:
             selected.append(generation)
         if not clauses:
             return []
-        query = _normalized_vector(self.embedder.embed_query(text), int(self.embedder.dimensions))
+        query = _normalized_vector(self._embed_query(text), self._dimensions)
         predicate = " OR ".join(clauses)
         total = sum(int(generation["processed"]) for generation in selected)
         if total == 0:
@@ -437,22 +476,26 @@ class VideoLake:
 
     def _matches(self, rows: list[dict[str, object]], limit: int) -> list[Match]:
         accepted: list[Match] = []
-        timestamps: dict[str, list[int]] = {}
-        for row in rows:
+        intervals: dict[str, list[tuple[int, int]]] = {}
+        for row in sorted(rows, key=lambda item: float(item["_distance"])):
             asset_id = str(row["asset_id"])
             timestamp = int(row["timestamp_ms"])
-            seen = timestamps.setdefault(asset_id, [])
-            if any(abs(timestamp - other) <= 5000 for other in seen):
-                continue
-            seen.append(timestamp)
             duration = int(row["duration_ms"])
+            start_ms = max(0, timestamp - 5000)
+            end_ms = min(duration, timestamp + 5000)
+            seen = intervals.setdefault(asset_id, [])
+            if any(
+                start_ms <= other_end and other_start <= end_ms for other_start, other_end in seen
+            ):
+                continue
+            seen.append((start_ms, end_ms))
             distance = float(row["_distance"])
             accepted.append(
                 Match(
                     asset_id=asset_id,
                     timestamp_ms=timestamp,
-                    start_ms=max(0, timestamp - 5000),
-                    end_ms=min(duration, timestamp + 5000),
+                    start_ms=start_ms,
+                    end_ms=end_ms,
                     score=max(-1.0, min(1.0, 1.0 - distance)),
                     source_hash=str(row["source_hash"]),
                     model_fingerprint=str(row["model_fingerprint"]),

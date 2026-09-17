@@ -60,3 +60,26 @@ the auth dependency's `credentials` parameter as a required query parameter and 
 422. The engine tests and other repository tests passed. The server worker also needs to
 call `VideoLake.remove()` if cancellation is intended to tombstone a partially registered
 asset; merely closing the ingest iterator intentionally leaves it resumable.
+
+## Core review follow-up
+
+The core review findings were addressed in a follow-up pass:
+
+- The model fingerprint and dimensions are pinned when the lake opens. The engine checks
+  both immediately before and in a `finally` block after every frame/query embedding
+  call, uses only the pinned values for schema validation and stored trace metadata, and
+  raises `incompatible_profile` if a mutable adapter drifts.
+- UTC milliseconds are calculated using integer `timedelta` fields instead of the
+  platform-dependent floating-point `datetime.timestamp()`. This floors pre-epoch
+  submillisecond instants consistently with the normalized millisecond string, and
+  timezone normalization overflow is reported as `invalid_time`.
+- Search deduplication now compares the actual duration-bounded +/-5 second playback
+  intervals. Candidates are explicitly processed in cosine-distance rank order, retaining
+  the best-scored match from overlapping regions while candidate expansion refills from
+  later non-overlapping results.
+- A fault-injection test now crashes after the LanceDB merge but before the SQLite
+  checkpoint, closes and reopens the lake, and verifies the uncheckpointed batch alone is
+  re-inferred, vector IDs remain unique, and the final progress count is correct.
+
+Scoped verification after the follow-up: **15 passed** using
+`.venv/bin/python -m pytest tests/test_engine.py`; Ruff check and format check also pass.
