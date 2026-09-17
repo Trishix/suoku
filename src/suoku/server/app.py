@@ -125,7 +125,7 @@ def create_app(settings: Settings) -> FastAPI:
             )
 
     app = FastAPI(
-        title="Semantic Video Lake",
+        title="Suoku",
         version="0.1.0",
         docs_url=None,
         redoc_url=None,

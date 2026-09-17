@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from semantic_video_lake.engine import VideoLake, _recorded_at
-from semantic_video_lake.types import Frame, LakeError, MediaInfo, SearchFilters
+from suoku.engine import VideoLake, _recorded_at
+from suoku.types import Frame, LakeError, MediaInfo, SearchFilters
 
 
 class DeterministicEmbedder:

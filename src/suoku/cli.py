@@ -12,7 +12,7 @@ from .types import LakeError
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="svl")
+    parser = argparse.ArgumentParser(prog="suoku")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser(
         "doctor", help="Print runtime and decoder availability; never downloads models"
@@ -56,7 +56,7 @@ def main():
 
             from .server.app import Settings, create_app
 
-            token = os.environ.get("SVL_API_TOKEN", "")
+            token = os.environ.get("SUOKU_API_TOKEN", "")
             uvicorn.run(
                 create_app(Settings(args.data, token)),
                 host=args.host,
@@ -72,7 +72,7 @@ def main():
     except KeyboardInterrupt:
         pass
     except (LakeError, ValueError, ImportError, OSError) as exc:
-        parser.exit(1, f"svl: {exc}\n")
+        parser.exit(1, f"suoku: {exc}\n")
 
 
 if __name__ == "__main__":

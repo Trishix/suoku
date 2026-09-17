@@ -29,7 +29,7 @@ def prepare_model(directory: str | Path, *, revision: str) -> Path:
     try:
         from huggingface_hub import snapshot_download
     except ImportError as exc:
-        raise LakeError("missing_extra", "Install semantic-video-lake[local].") from exc
+        raise LakeError("missing_extra", "Install suoku[local].") from exc
     directory = Path(directory).resolve()
     if directory.exists() and any(directory.iterdir()):
         raise LakeError("model_exists", "Model destination must be empty to avoid mixed revisions.")
@@ -46,7 +46,7 @@ def prepare_model(directory: str | Path, *, revision: str) -> Path:
         if path.is_file() and ".cache" not in path.relative_to(directory).parts
     }
     manifest = {"model": MODEL_ID, "revision": revision, "files": files}
-    (directory / "svl-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (directory / "suoku-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return directory
 
 
@@ -56,7 +56,7 @@ class SiglipEmbedder:
     def __init__(self, directory: str | Path, *, device: str = "cpu"):
         directory = Path(directory).resolve()
         try:
-            manifest = json.loads((directory / "svl-manifest.json").read_text())
+            manifest = json.loads((directory / "suoku-manifest.json").read_text())
             if manifest["model"] != MODEL_ID or not re.fullmatch(
                 r"[0-9a-f]{40}", manifest["revision"]
             ):
@@ -75,7 +75,7 @@ class SiglipEmbedder:
             import torch
             from transformers import AutoProcessor, SiglipModel
         except ImportError as exc:
-            raise LakeError("missing_extra", "Install semantic-video-lake[local].") from exc
+            raise LakeError("missing_extra", "Install suoku[local].") from exc
         self._torch = torch
         self.device = device
         self.processor = AutoProcessor.from_pretrained(

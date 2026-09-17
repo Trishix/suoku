@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "semantic-video-lake"
+name = "suoku"
 version = "0.1.0a1"
 description = "Local semantic video search with traceable timestamps and optional HTTP service"
 readme = "README.md"
@@ -17,10 +17,10 @@ server = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
 dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11", "build>=1.2"]
 
 [project.scripts]
-svl = "semantic_video_lake.cli:main"
+suoku = "suoku.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/semantic_video_lake"]
+packages = ["src/suoku"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

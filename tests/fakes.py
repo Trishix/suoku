@@ -3,7 +3,7 @@
 import numpy as np
 from PIL import Image
 
-from semantic_video_lake.types import Frame, MediaInfo
+from suoku.types import Frame, MediaInfo
 
 
 class ColorEmbedder:

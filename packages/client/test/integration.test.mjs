@@ -10,8 +10,8 @@ import { VideoLakeClient, LakeClientError } from "../dist/index.js";
 
 test("built npm client against real HTTP API, FFmpeg, worker and LanceDB", { timeout: 60_000 }, async (t) => {
   const root = resolve("../..");
-  const directory = await mkdtemp(join(tmpdir(), "svl-sdk-"));
-  const python = process.env.SVL_TEST_PYTHON ?? join(root, ".venv/bin/python");
+  const directory = await mkdtemp(join(tmpdir(), "suoku-sdk-"));
+  const python = process.env.SUOKU_TEST_PYTHON ?? join(root, ".venv/bin/python");
   const child = spawn(python, [join(root, "tests/http_fixture.py"), join(directory, "lake")], { cwd: root });
   let errors = "";
   child.stderr.on("data", (chunk) => { errors = (errors + chunk).slice(-16_384); });

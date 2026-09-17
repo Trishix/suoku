@@ -4,9 +4,9 @@ import pytest
 from fakes import ColorEmbedder, FixtureReader
 from fastapi.testclient import TestClient
 
-from semantic_video_lake.server.app import Settings, create_app
-from semantic_video_lake.server.worker import Worker
-from semantic_video_lake.types import LakeError
+from suoku.server.app import Settings, create_app
+from suoku.server.worker import Worker
+from suoku.types import LakeError
 
 TOKEN = "test-token-" + "x" * 32
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}

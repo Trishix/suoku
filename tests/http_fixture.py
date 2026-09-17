@@ -10,8 +10,8 @@ from pathlib import Path
 import uvicorn
 from fakes import ColorEmbedder
 
-from semantic_video_lake.server.app import Settings, create_app
-from semantic_video_lake.server.worker import Worker
+from suoku.server.app import Settings, create_app
+from suoku.server.worker import Worker
 
 directory = Path(sys.argv[1])
 token = "integration-token-" + "x" * 32

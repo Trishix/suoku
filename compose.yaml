@@ -4,7 +4,7 @@ services:
       context: .
       target: api
     environment:
-      SVL_API_TOKEN: ${SVL_API_TOKEN:?Set a random API token of at least 32 characters}
+      SUOKU_API_TOKEN: ${SUOKU_API_TOKEN:?Set a random API token of at least 32 characters}
     ports: ["127.0.0.1:8000:8000"]
     volumes: ["./.lake:/data"]
     read_only: true

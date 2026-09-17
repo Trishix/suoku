@@ -3,8 +3,8 @@ import subprocess
 
 import pytest
 
-from semantic_video_lake.media import FFmpegReader
-from semantic_video_lake.types import LakeError
+from suoku.media import FFmpegReader
+from suoku.types import LakeError
 
 
 @pytest.fixture

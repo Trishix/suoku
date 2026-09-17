@@ -1,7 +1,7 @@
 {
-  "name": "@semantic-video-lake/client",
+  "name": "suoku",
   "version": "0.1.0-alpha.1",
-  "description": "Typed client for the optional Semantic Video Lake service",
+  "description": "Typed client for the optional Suoku service",
   "license": "Apache-2.0",
   "type": "module",
   "engines": { "node": ">=22" },

@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from semantic_video_lake.server.app import Settings, create_app
+from suoku.server.app import Settings, create_app
 
 root = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory() as directory:

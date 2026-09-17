@@ -1,6 +1,6 @@
 # Internal integration contracts
 
-Python package: semantic_video_lake. All times milliseconds, source timestamps relative to the first video presentation timestamp. Errors: LakeError(code, message), exposed code and safe message. Custom adapters execute trusted application code.
+Python package: suoku. All times milliseconds, source timestamps relative to the first video presentation timestamp. Errors: LakeError(code, message), exposed code and safe message. Custom adapters execute trusted application code.
 
 ## Shared types (engine implementer owns types.py)
 Frozen dataclasses:

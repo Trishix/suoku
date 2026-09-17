@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from semantic_video_lake.adapters.siglip import SiglipEmbedder, prepare_model
-from semantic_video_lake.types import Frame, LakeError
+from suoku.adapters.siglip import SiglipEmbedder, prepare_model
+from suoku.types import Frame, LakeError
 
 
 def test_model_requires_pinned_revision_and_manifest(tmp_path):
@@ -14,7 +14,7 @@ def test_model_requires_pinned_revision_and_manifest(tmp_path):
         prepare_model(tmp_path / "weights", revision="main")
     with pytest.raises(LakeError, match="pinned"):
         SiglipEmbedder(tmp_path)
-    (tmp_path / "svl-manifest.json").write_text(
+    (tmp_path / "suoku-manifest.json").write_text(
         json.dumps(
             {
                 "model": "google/siglip-base-patch16-224",
@@ -28,10 +28,10 @@ def test_model_requires_pinned_revision_and_manifest(tmp_path):
 
 
 @pytest.mark.skipif(
-    not os.environ.get("SVL_TEST_MODEL"), reason="Set SVL_TEST_MODEL to prepared local weights"
+    not os.environ.get("SUOKU_TEST_MODEL"), reason="Set SUOKU_TEST_MODEL to prepared local weights"
 )
 def test_real_siglip_local_inference():
-    model = SiglipEmbedder(os.environ["SVL_TEST_MODEL"])
+    model = SiglipEmbedder(os.environ["SUOKU_TEST_MODEL"])
     frames = [Frame(0, Image.new("RGB", (224, 224), color)) for color in ["red", "blue"]]
     vectors = model.embed_frames(frames)
     query = model.embed_query("a solid red background")

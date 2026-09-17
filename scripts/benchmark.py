@@ -8,8 +8,8 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 
-from semantic_video_lake import VideoLake
-from semantic_video_lake.adapters.siglip import SiglipEmbedder
+from suoku import VideoLake
+from suoku.adapters.siglip import SiglipEmbedder
 
 parser = argparse.ArgumentParser()
 parser.add_argument("corpus", type=Path)
@@ -52,7 +52,7 @@ rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 result = {
     "dataset": str(args.corpus), "query_count": len(queries), "video_seconds": video_ms / 1000,
     "platform": platform.platform(), "processor": platform.processor(),
-    "versions": {name: version(name) for name in ["semantic-video-lake", "lancedb", "torch", "transformers"]},
+    "versions": {name: version(name) for name in ["suoku", "lancedb", "torch", "transformers"]},
     "model_fingerprint": embedder.fingerprint, "model_load_seconds": model_load_seconds,
     "indexing_seconds": indexing_seconds, "recall_at_1": hits1 / len(queries),
     "recall_at_5": hits5 / len(queries), "search_p50_ms": statistics.median(latencies),

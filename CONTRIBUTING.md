@@ -14,7 +14,7 @@ npm run generate
 npm test
 ```
 
-Tests use deterministic color embeddings for pipeline behavior, not semantic claims. `SVL_TEST_MODEL=/absolute/model/path` enables the real SigLIP test after explicit setup. Keep real customer footage and models out of Git.
+Tests use deterministic color embeddings for pipeline behavior, not semantic claims. `SUOKU_TEST_MODEL=/absolute/model/path` enables the real SigLIP test after explicit setup. Keep real customer footage and models out of Git.
 
 Change public API models first, regenerate OpenAPI and TypeScript types, then update the transport/client tests. Preserve model fingerprints and generation activation semantics; include a fault-recovery regression for persistence changes.
 

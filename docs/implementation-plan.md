@@ -15,7 +15,7 @@ The approved conversation plan is the specification. Build a Python library inde
 - Test actual LanceDB and FFmpeg, fault recovery, auth, and installed npm client against HTTP service.
 
 ## Task 1: Core engine and persistence
-Implement models/errors, SQLite catalog, LanceDB vector store, VideoLake orchestration, durability, and engine tests. Interface is specified in docs/contracts.md. Owner: engine implementer. Paths: src/semantic_video_lake/{types,catalog,engine}.py and tests/test_engine.py. Source decoder and adapters are owned by controller.
+Implement models/errors, SQLite catalog, LanceDB vector store, VideoLake orchestration, durability, and engine tests. Interface is specified in docs/contracts.md. Owner: engine implementer. Paths: src/suoku/{types,catalog,engine}.py and tests/test_engine.py. Source decoder and adapters are owned by controller.
 
 ## Task 2: Media and local models
 Implement secure bounded ffprobe/ffmpeg decoding, timestamp sampling, optional SigLIP adapter, explicit verified model setup, and diagnostics CLI. Tests use generated media; model inference gets an opt-in smoke test.
