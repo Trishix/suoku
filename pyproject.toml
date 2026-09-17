@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "semantic-video-lake"
+version = "0.1.0a1"
+description = "Local semantic video search with traceable timestamps and optional HTTP service"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = ["lancedb>=0.25,<0.30", "numpy>=1.26,<3", "pillow>=11,<13", "filelock>=3.16,<4"]
+
+[project.optional-dependencies]
+local = ["transformers>=4.49,<5", "torch>=2.6,<3", "safetensors>=0.5,<1"]
+server = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11", "build>=1.2"]
+
+[project.scripts]
+svl = "semantic_video_lake.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/semantic_video_lake"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
