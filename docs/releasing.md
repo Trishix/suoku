@@ -102,7 +102,9 @@ PY
 - [ ] Review dependency scan results and update the supported dependency range if necessary.
 - [ ] Enable and test the repository's private vulnerability reporting route; confirm maintainer coverage.
 - [ ] Configure trusted publishing/provenance with least privilege; keep registry secrets out of Git.
-- [ ] Obtain explicit publication authorization, then publish and verify registry installs.
+- [ ] Configure the PyPI Trusted Publisher to match `Trishix/suoku` and `.github/workflows/publish.yml`.
+- [ ] Update the Python version, create a matching GitHub release/tag, and verify the publish workflow.
+- [ ] Verify the published package in a clean environment with `python -m pip install suoku==VERSION`.
 - [ ] Add the release tag/date and artifact links only after those artifacts exist.
 
 Building a wheel or npm tarball does not perform any of the external publication steps.
