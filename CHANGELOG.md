@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0a2 — unreleased
+## 0.1.0a2 — published 2026-09-22
 
 - Correct Python distribution metadata for the Apache-2.0 license, homepage, keywords,
   classifiers, and license file included in the wheel and source archive.
