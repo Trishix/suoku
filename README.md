@@ -1,153 +1,251 @@
 # Suoku
 
-An open-source semantic layer for archived video: retrieve relevant moments locally,
-inspect selected frames with your model provider, and get structured observations and
-answers with source timestamps.
+[![CI](https://github.com/Trishix/suoku/actions/workflows/ci.yml/badge.svg)](https://github.com/Trishix/suoku/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Suoku combines local SigLIP retrieval with optional bring-your-own-key visual reasoning
-through LiteLLM. Python, CLI, HTTP, and TypeScript expose the same workflow. Original
-media stays in your storage; enabling insights sends selected frames and question/evidence
-text to your configured provider. Provider charges and data policies apply.
+Suoku is an open-source semantic layer for archived video. It combines local visual search
+with optional bring-your-own-key (BYOK) vision models so applications can ask questions,
+create structured observations, and receive timestamped evidence citations.
 
-This is an alpha for experimentation. It samples frames, can miss events, and can produce
-incorrect answers. Safety and warehouse recipes are starting points for evaluation, not
-validated detectors or compliance assessments. Live streams, audio understanding, face
-recognition, and autonomous alerts are outside this release.
+Suoku is currently an alpha for developers building and evaluating video-understanding
+workflows. It is not a hosted SaaS, surveillance product, compliance detector, or autonomous
+operations system.
 
-Start with short archived clips. Evidence extraction currently scans the source for each
-selected window; long recordings may be slow or reach the decoder deadline. Long-video
-throughput and live-provider accuracy are not yet benchmarked.
+## Why use Suoku?
 
-## Run the sample
+Raw video is difficult for an application to search, reason over, and review. Suoku provides
+the missing application layer:
 
-Requirements: Python 3.11+, FFmpeg/ffprobe, and a vision-capable provider model and API key.
-Node.js 22+ is needed only for the TypeScript client. Install from this checkout; registry
-publication is not assumed.
+- Local retrieval finds likely moments before any provider request.
+- Selected frames are converted into validated structured observations.
+- Questions return answers with source asset IDs and millisecond time ranges.
+- Provider credentials remain with the worker; applications send only a Suoku service token.
+- Python, CLI, authenticated HTTP, and typed TypeScript interfaces expose the same workflow.
+- Observation caching avoids repeating the same vision analysis when source and recipe
+  fingerprints have not changed.
+- Built-in general, safety, and warehouse recipes provide inspectable starting points.
+
+The current release processes archived MP4, MOV, and WebM files. It does not include live
+camera ingestion, audio understanding, face recognition, autonomous alerts, multi-tenant
+authorization, or automated actions.
+
+## How it works
+
+```text
+Your backend ──Bearer service token──▶ Suoku API ──durable jobs──▶ Suoku worker
+                                                                    │
+                          media + local retrieval ◀─────────────────┘
+                                                                    │ selected frames/text
+                                                                    ▼
+                                                        configured vision provider
+```
+
+The API accepts uploads and queues work. The worker owns FFmpeg, the local retrieval model,
+the observation cache, and the optional provider adapter. A provider receives selected frames
+and question/evidence text, not the complete source video. Answers state that evidence is
+sampled and can be incomplete.
+
+For storage and process boundaries, see [Architecture](docs/architecture.md).
+
+## Quick start
+
+### Requirements
+
+- Python 3.11 or newer
+- FFmpeg and `ffprobe`
+- A vision model that supports image input and structured JSON output
+- Node.js 22 or newer only if using the TypeScript client
+
+### Install from a checkout
 
 ```bash
 git clone https://github.com/Trishix/suoku.git
 cd suoku
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[local,server,insights]'
+python -m pip install -e '.[local,server,insights]'
+```
 
-# Explicit one-time local retrieval model download, pinned to a revision.
+Prepare the pinned local retrieval model. This is the explicit network/download step:
+
+```bash
 suoku prepare-model .models/siglip \
   --revision 7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed
-
-# Replace YOUR_VISION_MODEL_ID with a model available in your provider account.
-# The API key is requested without terminal echo.
-suoku init --provider openai --model YOUR_VISION_MODEL_ID
 suoku doctor --model .models/siglip
 ```
 
-`init` writes `.suoku/config.env` with restrictive permissions and generates a service
-token. Commands load that file explicitly; process environment variables take precedence.
-Keep it out of Git. Provider options are `openai`, `anthropic`, `gemini`, `groq`, and
-`openrouter`; model identifiers are configurable. See [provider setup and recipes](docs/recipes.md).
-
-Start the API and the worker in separate terminals, from this directory with the virtual
-environment activated:
+Initialize the deployment. The command generates `SUOKU_API_TOKEN`, asks for the provider
+key without echoing it, and writes a protected `.suoku/config.env` file. Do not commit that
+file or copy its values into browser code.
 
 ```bash
-# Terminal 1: authenticated API, bound to loopback by default.
-suoku serve --data .lake
+suoku init --provider openai --model YOUR_VISION_MODEL_ID
 ```
 
+Supported provider prefixes are `openai`, `anthropic`, `gemini`, `groq`, and `openrouter`.
+There is no universal default model; use a model available to your account that supports
+both image input and structured output. See [configuration](docs/configuration.md) and
+[provider setup](docs/recipes.md).
+
+Start the API and worker in separate terminals:
+
 ```bash
-# Terminal 2: local retrieval plus the configured optional insight provider.
+suoku serve --data .lake
 suoku worker --data .lake --model .models/siglip --device cpu
 ```
 
+In a third terminal, upload and ask a question:
+
 ```bash
-# Terminal 3: status, upload, and questions. Upload waits for ingestion by default.
 suoku status
 suoku upload examples/media/big-buck-bunny-15s.mp4 --camera demo
-# Use the asset_id printed by upload in the commands below.
 suoku ask "What animal is visible outdoors?" --asset ASSET_ID
 suoku analyze ASSET_ID --recipe general --from 00:00:00 --to 00:00:15
 suoku observations ASSET_ID
 ```
 
-The [included sample](examples/media/ATTRIBUTION.md) is an attributed excerpt from
-Blender Foundation's *Big Buck Bunny*, licensed CC BY 3.0. It demonstrates the workflow;
-it is not a real-world surveillance or safety dataset.
+The bundled sample is an attributed *Big Buck Bunny* excerpt under its own CC BY 3.0
+license. See [sample attribution](examples/media/ATTRIBUTION.md).
 
-## Use it in code
+## Use the Python API
 
-There are two integration modes:
+Direct Python use is useful for trusted scripts and applications that want to own the local
+engine process. It does not provide the HTTP process boundary or per-user authorization.
 
-- Use `VideoLake` and `InsightEngine` directly in a trusted Python process when you want
-  local control and do not need an HTTP boundary.
-- Run `suoku serve` and `suoku worker`, then call the authenticated service from your
-  application backend with the TypeScript client or any HTTP client. This is the recommended
-  web-application shape; keep `SUOKU_API_TOKEN` and provider keys out of browser code.
+```python
+from suoku import VideoLake
+from suoku.adapters.siglip import SiglipEmbedder
+from suoku.config import load_config
+from suoku.insights import InsightEngine
+from suoku.providers import LiteLLMProvider
 
-The [web-app integration guide](docs/web-app-integration.md) includes a backend example,
-browser upload pattern, authorization guidance, and job/error handling.
+config = load_config()
+lake = VideoLake.open(".app-lake/index", SiglipEmbedder(".models/siglip"))
+provider = LiteLLMProvider(
+    config["SUOKU_INSIGHT_MODEL"],
+    config["SUOKU_PROVIDER_API_KEY"],
+)
+insights = InsightEngine(lake, provider)
 
-The [complete Python example](examples/insights.py) ingests the sample, asks a question,
-runs a recipe, prints dataclass results as JSON, and displays local playback references:
+asset_id = lake.ingest("clip.mp4")
+answer = insights.ask("What is visible near the entrance?", asset_ids=[asset_id])
+print(answer.answer)
+for citation in answer.citations:
+    print(citation.asset_id, citation.start_ms, citation.end_ms)
 
-```bash
-python examples/insights.py --model .models/siglip
+lake.close()
 ```
 
-It uses `InsightEngine(lake, provider)`, `ask(...)`, `analyze(...)`, and
-`observations(...)`. Python use opens its own `.example-lake/index`; it does not need
-the HTTP service. The core `VideoLake` retrieval API also works without a cloud provider.
+For a complete runnable example, see [examples/insights.py](examples/insights.py).
 
-For Node.js, build the local typed client and run the [complete client example](examples/client.mjs)
-against the API and worker:
+## Use it from a web application
+
+Run Suoku as a backend service and call it from your own server. Do not put the Suoku
+service token or provider key in browser JavaScript. Your backend should authenticate users,
+check asset ownership, proxy authorized media, and enforce application-specific quotas.
+
+The local TypeScript client is built and installed from this checkout until registry
+publication is configured:
 
 ```bash
-npm ci --prefix packages/client
-npm run build --prefix packages/client
-node examples/client.mjs
+cd packages/client
+npm ci
+npm run build
+npm pack --dry-run
+cd ../..
+npm install ./packages/client/suoku-0.1.0-alpha.1.tgz
 ```
 
-`VideoLakeClient` supports upload, search, jobs, recipes, analysis, observations, answers,
-status, and authenticated media playback. The example imports the built client directly,
-loads configuration through Python when necessary, and saves a playable local file for
-the first citation. Keep the service token server-side; use your application backend to
-proxy authorized playback to a browser. See the [client reference](packages/client/README.md).
+Example server-side usage:
 
-## How it works
+```ts
+import { readFile } from "node:fs/promises";
+import { VideoLakeClient } from "suoku";
 
-Ingestion samples archived video into local embeddings. `ask` retrieves candidate windows,
-extracts bounded evidence frames, validates the model's recipe output, and reasons over
-those observations. Citations identify an asset and a millisecond playback interval.
-They link evidence for review; they do not prove the answer is correct.
+const suoku = new VideoLakeClient({
+  baseUrl: process.env.SUOKU_BASE_URL ?? "http://127.0.0.1:8000",
+  token: process.env.SUOKU_API_TOKEN!,
+});
 
-Observations are cached by source content, window, extraction settings, recipe, provider,
-and prompt fingerprints. Reusing an observation avoids its repeated vision call; answer
-reasoning can still call the provider. Changing a model, recipe, source, or relevant
-fingerprint requires fresh observations. A provider can change an unversioned model alias
-without changing its identifier, so use versioned identifiers where available.
+const upload = await suoku.upload(new Blob([await readFile("clip.mp4")]), {
+  filename: "clip.mp4",
+  cameraId: "entrance",
+});
+const indexed = await suoku.wait(upload, { timeoutMs: 300_000 });
+const assetId = indexed.result?.asset_id;
+if (!assetId) throw new Error("Upload did not return an asset ID");
 
-The service stores managed uploads under `.lake/media`, vectors and observation cache
-under `.lake/index` (including `insights.sqlite3`), and durable jobs in `.lake/jobs.sqlite3`.
-These paths describe native CLI use; Compose uses a named data volume. Direct Python ingestion
-references external files and never deletes the originals. Removal and purge have
-different retention effects; see [SECURITY.md](SECURITY.md).
+const answer = await suoku.ask("What is visible near the entrance?", {
+  assetIds: [assetId],
+  recipe: "general",
+  timeoutMs: 300_000,
+});
 
-The base `compose.yaml` runs an offline worker. Cloud insights require the explicit
-`compose.insights.yaml` override and provider credentials; see [deployment notes](docs/releasing.md).
+console.log(answer.answer, answer.citations, answer.limitations);
+```
 
-## Contributor resources
+For upload authorization, job handling, media playback, and error behavior, read the
+[web-app integration guide](docs/web-app-integration.md). The complete endpoint reference
+is in the [HTTP API documentation](docs/api.md).
+
+## Repository layout
+
+```text
+src/suoku/engine.py          local ingestion and retrieval
+src/suoku/insights/          recipes, evidence, cache, and grounded answers
+src/suoku/providers.py       isolated BYOK provider adapter
+src/suoku/server/            authenticated API, durable jobs, and worker
+src/suoku/cli.py             operator setup and command-line workflows
+packages/client/             typed TypeScript client
+tests/                       unit, integration, security, and provider-contract tests
+docs/                        contributor-facing architecture and maintenance guides
+examples/                    runnable examples and licensed sample media
+```
+
+## Development and contribution
+
+Set up the contributor environment:
+
+```bash
+python -m pip install -e '.[server,insights,dev]'
+python -m pytest -q
+python -m ruff check src tests scripts examples
+python scripts/export_openapi.py
+cd packages/client
+npm ci
+npm run generate
+npm test
+```
+
+The test suite uses deterministic fixtures and does not make paid provider calls by default.
+Local model and live-provider tests are explicit opt-ins. Public API changes should update
+the Python models, OpenAPI schema, TypeScript client, examples, and tests together.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. It explains code
+ownership, review expectations, persistence changes, provider testing, and documentation
+updates.
+
+## Help and documentation
 
 - [Contributor documentation index](docs/README.md)
-- [Contributing guide](CONTRIBUTING.md)
-- [Architecture and data flow](docs/architecture.md)
-- [HTTP API reference](docs/api.md)
-- [Configuration reference](docs/configuration.md)
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [Recipes and providers](docs/recipes.md)
+- [HTTP API](docs/api.md)
+- [Web-app integration](docs/web-app-integration.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [Web-app integration and client contract](docs/web-app-integration.md)
-- [Recipes, provider setup, and bounded custom schemas](docs/recipes.md)
-- [Runnable examples and authenticated HTTP calls](examples/README.md)
-- [Evaluation and pilot checklist](docs/evaluation.md)
+- [Evaluation guide](docs/evaluation.md)
 - [Security policy](SECURITY.md)
-- [Release checks](docs/releasing.md)
-- [Changelog](CHANGELOG.md)
+- [Release checklist](docs/releasing.md)
 
-Suoku source is Apache-2.0. The bundled sample has its own attribution and license.
+For bugs and feature discussions, use [GitHub Issues](https://github.com/Trishix/suoku/issues).
+Do not post private footage, credentials, or vulnerability details in a public issue; follow
+the [security policy](SECURITY.md) instead.
+
+## Maintainer and license
+
+Suoku is maintained by [Trishix](https://github.com/Trishix). Contributions are welcome
+through issues and pull requests. See [CONTRIBUTING.md](CONTRIBUTING.md) for project rules.
+
+The source code is available under the Apache-2.0 license; see [LICENSE](LICENSE). The
+bundled sample media has separate attribution and licensing terms documented beside it.
