@@ -9,8 +9,12 @@ dist/
 node_modules/
 .superpowers/
 .env
+.env.*
+!.env.example
+.suoku/
 .lake/
 .models/
+.example-lake/
+.example-output/
 coverage.xml
 .coverage
-

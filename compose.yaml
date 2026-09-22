@@ -6,7 +6,7 @@ services:
     environment:
       SUOKU_API_TOKEN: ${SUOKU_API_TOKEN:?Set a random API token of at least 32 characters}
     ports: ["127.0.0.1:8000:8000"]
-    volumes: ["./.lake:/data"]
+    volumes: ["suoku-data:/data"]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     cap_drop: [ALL]
@@ -20,7 +20,7 @@ services:
       context: .
       target: worker
     network_mode: none
-    volumes: ["./.lake:/data", "./.models:/models:ro"]
+    volumes: ["suoku-data:/data", "./.models:/models:ro"]
     read_only: true
     tmpfs: ["/tmp:size=256m,mode=1777"]
     cap_drop: [ALL]
@@ -30,3 +30,5 @@ services:
     pids_limit: 128
     restart: unless-stopped
 
+volumes:
+  suoku-data:

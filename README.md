@@ -1,152 +1,134 @@
 # Suoku
 
-Suoku is an open-source, local-first semantic video search library. It turns archived video into timestamped, searchable visual observations while keeping original media under your control.
+An open-source semantic layer for archived video: retrieve relevant moments locally,
+inspect selected frames with your model provider, and get structured observations and
+answers with source timestamps.
 
-Ask questions such as “a red vehicle near the gate” and receive matching moments with a source video, timestamp, playback window, similarity score, camera metadata, and model fingerprint.
+Suoku combines local SigLIP retrieval with optional bring-your-own-key visual reasoning
+through LiteLLM. Python, CLI, HTTP, and TypeScript expose the same workflow. Original
+media stays in your storage; enabling insights sends selected frames and question/evidence
+text to your configured provider. Provider charges and data policies apply.
 
-## Features
+This is an alpha for experimentation. It samples frames, can miss events, and can produce
+incorrect answers. Safety and warehouse recipes are starting points for evaluation, not
+validated detectors or compliance assessments. Live streams, audio understanding, face
+recognition, and autonomous alerts are outside this release.
 
-- Python library for applications and notebooks
-- Optional FastAPI service for other languages
-- Typed `suoku` npm client for Node.js and TypeScript
-- LanceDB vector storage and SQLite metadata/job state
-- FFmpeg timestamped frame extraction
-- Replaceable embedding adapters
-- Optional local SigLIP image-text retrieval adapter
-- Resumable, content-hash-based ingestion
+Start with short archived clips. Evidence extraction currently scans the source for each
+selected window; long recordings may be slow or reach the decoder deadline. Long-video
+throughput and live-provider accuracy are not yet benchmarked.
 
-Suoku v0.1 performs visual similarity search over archived video. It does not claim that a similarity score proves an event happened. Reliable action, identity, intent, or multi-minute behavior questions require temporal models and domain-specific evaluation. Live cameras, audio search, face recognition, semantic compression, and autonomous alerts are outside this release.
+## Run the sample
 
-## Quick start: Python
-
-Requirements: Python 3.11+ and FFmpeg/ffprobe. The included decoder supports MP4/MOV with H.264 and WebM with VP8/VP9.
+Requirements: Python 3.11+, FFmpeg/ffprobe, and a vision-capable provider model and API key.
+Node.js 22+ is needed only for the TypeScript client. Install from this checkout; registry
+publication is not assumed.
 
 ```bash
+git clone https://github.com/Trishix/suoku.git
+cd suoku
 python -m venv .venv
 source .venv/bin/activate
-pip install suoku
-```
+pip install -e '.[local,server,insights]'
 
-Provide an object implementing `fingerprint`, `dimensions`, `embed_frames(frames)`, and `embed_query(text)`. The repository includes an optional local adapter:
-
-```bash
-pip install 'suoku[local]'
+# Explicit one-time local retrieval model download, pinned to a revision.
 suoku prepare-model .models/siglip \
   --revision 7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed
+
+# Replace YOUR_VISION_MODEL_ID with a model available in your provider account.
+# The API key is requested without terminal echo.
+suoku init --provider openai --model YOUR_VISION_MODEL_ID
+suoku doctor --model .models/siglip
 ```
 
-```python
-from pathlib import Path
-from suoku import VideoLake
-from suoku.adapters.siglip import SiglipEmbedder
+`init` writes `.suoku/config.env` with restrictive permissions and generates a service
+token. Commands load that file explicitly; process environment variables take precedence.
+Keep it out of Git. Provider options are `openai`, `anthropic`, `gemini`, `groq`, and
+`openrouter`; model identifiers are configurable. See [provider setup and recipes](docs/recipes.md).
 
-model = SiglipEmbedder(".models/siglip")
-with VideoLake.open(".lake/index", model) as lake:
-    asset_id = lake.ingest(Path("./footage/gate.mp4"), camera_id="gate-1")
-    for match in lake.search("a red vehicle near the gate", limit=5):
-        print(match.asset_id, match.start_ms, match.end_ms, match.score)
-```
-
-The default sampling interval is two seconds. Results include a five-second playback padding window bounded by source duration. Ingestion resumes safely after interruption and unchanged files are not embedded again.
-
-## FastAPI service
+Start the API and the worker in separate terminals, from this directory with the virtual
+environment activated:
 
 ```bash
-pip install 'suoku[server]'
-export SUOKU_API_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+# Terminal 1: authenticated API, bound to loopback by default.
 suoku serve --data .lake
 ```
 
-Run the worker separately; it owns the model and engine:
-
 ```bash
+# Terminal 2: local retrieval plus the configured optional insight provider.
 suoku worker --data .lake --model .models/siglip --device cpu
 ```
 
-The service binds to `127.0.0.1` by default. Every route except `/healthz` requires a bearer token. Jobs are durable and return `202 Accepted` while processing.
+```bash
+# Terminal 3: status, upload, and questions. Upload waits for ingestion by default.
+suoku status
+suoku upload examples/media/big-buck-bunny-15s.mp4 --camera demo
+# Use the asset_id printed by upload in the commands below.
+suoku ask "What animal is visible outdoors?" --asset ASSET_ID
+suoku analyze ASSET_ID --recipe general --from 00:00:00 --to 00:00:15
+suoku observations ASSET_ID
+```
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /v1/videos?filename=...` | Stream a video upload into an ingestion job |
-| `POST /v1/search` | Queue text search with camera/time filters |
-| `GET /v1/jobs/{id}` | Read progress, result, or error |
-| `POST /v1/jobs/{id}/cancel` | Cancel a job |
-| `GET /v1/videos/{id}/content` | Authenticated range-capable playback |
-| `DELETE /v1/videos/{id}` | Hide an asset from search |
-| `DELETE /v1/videos/{id}/purge` | Explicitly purge managed media and derived records |
+The [included sample](examples/media/ATTRIBUTION.md) is an attributed excerpt from
+Blender Foundation's *Big Buck Bunny*, licensed CC BY 3.0. It demonstrates the workflow;
+it is not a real-world surveillance or safety dataset.
 
-## TypeScript / npm client
+## Use it in code
 
-The npm package is a typed client for the service; it does not embed Python or execute models inside Node.js.
+The [complete Python example](examples/insights.py) ingests the sample, asks a question,
+runs a recipe, prints dataclass results as JSON, and displays local playback references:
 
 ```bash
-npm install suoku
+python examples/insights.py --model .models/siglip
 ```
 
-```ts
-import { VideoLakeClient } from "suoku";
+It uses `InsightEngine(lake, provider)`, `ask(...)`, `analyze(...)`, and
+`observations(...)`. Python use opens its own `.example-lake/index`; it does not need
+the HTTP service. The core `VideoLake` retrieval API also works without a cloud provider.
 
-const lake = new VideoLakeClient({
-  baseUrl: "http://127.0.0.1:8000",
-  token: process.env.SUOKU_API_TOKEN!,
-});
-
-const matches = await lake.search("a red vehicle near the gate", {
-  limit: 5,
-  filters: { camera_id: "gate-1" },
-});
-```
-
-Keep the service token server-side; never place it in browser bundles.
-
-## Docker deployment
+For Node.js, build the local typed client and run the [complete client example](examples/client.mjs)
+against the API and worker:
 
 ```bash
-export SUOKU_API_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-mkdir -p .lake .models
-# Place a prepared model at .models/siglip.
-docker compose up --build
-```
-
-The worker has no network, runs as non-root, uses a read-only root filesystem, drops Linux capabilities, and has resource limits. Review [SECURITY.md](SECURITY.md) before exposing it to a network or processing hostile uploads.
-
-## Data layout
-
-```text
-.lake/
-├── index/       # LanceDB vectors and catalog.sqlite3
-├── jobs.sqlite3 # service job state
-└── media/       # service-managed uploads only
-```
-
-The Python library references external source paths and never deletes them. Service purge deletes only media uploaded into its managed directory. Database history and backups may retain derived data until maintenance.
-
-## Benchmarking
-
-Use `scripts/make_benchmark.py` and `scripts/benchmark.py` to create a synthetic 50-query corpus and record Recall@1, Recall@5, indexing time, search latency, model load time, and peak RSS. The synthetic benchmark tests color retrieval only and is not evidence of CCTV, action, identity, or safety-event accuracy.
-
-## Security
-
-Direct Python use is not a sandbox. For untrusted uploads, use the supplied container profile and keep FFmpeg, PyTorch, LanceDB, and the host patched. Uploads are bounded by size, duration, dimensions, quotas, and decode deadlines. The service rejects arbitrary server paths, URLs, SQL, model identifiers, and decoder flags.
-
-See [SECURITY.md](SECURITY.md) for authentication, isolation, model integrity, retention, deletion, and vulnerability-reporting guidance.
-
-## Development
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[server,dev]'
-python -m pytest -q
-python -m ruff check src tests scripts
-python scripts/export_openapi.py
 npm ci --prefix packages/client
-npm test --prefix packages/client
+npm run build --prefix packages/client
+node examples/client.mjs
 ```
 
-Tests use generated videos and deterministic embeddings for pipeline behavior. Set `SUOKU_TEST_MODEL=/absolute/path/to/prepared/model` to enable the real local SigLIP smoke test.
+`VideoLakeClient` supports upload, search, jobs, recipes, analysis, observations, answers,
+status, and authenticated media playback. The example imports the built client directly,
+loads configuration through Python when necessary, and saves a playable local file for
+the first citation. Keep the service token server-side; use your application backend to
+proxy authorized playback to a browser. See the [client reference](packages/client/README.md).
 
-## License and status
+## How it works
 
-Suoku source code is licensed under Apache-2.0. It is an alpha release intended for local experimentation and evaluation. Benchmark your own footage, configure retention and backups, and validate the container boundary before production use.
+Ingestion samples archived video into local embeddings. `ask` retrieves candidate windows,
+extracts bounded evidence frames, validates the model's recipe output, and reasons over
+those observations. Citations identify an asset and a millisecond playback interval.
+They link evidence for review; they do not prove the answer is correct.
 
+Observations are cached by source content, window, extraction settings, recipe, provider,
+and prompt fingerprints. Reusing an observation avoids its repeated vision call; answer
+reasoning can still call the provider. Changing a model, recipe, source, or relevant
+fingerprint requires fresh observations. A provider can change an unversioned model alias
+without changing its identifier, so use versioned identifiers where available.
+
+The service stores managed uploads under `.lake/media`, vectors and observation cache
+under `.lake/index` (including `insights.sqlite3`), and durable jobs in `.lake/jobs.sqlite3`.
+These paths describe native CLI use; Compose uses a named data volume. Direct Python ingestion
+references external files and never deletes the originals. Removal and purge have
+different retention effects; see [SECURITY.md](SECURITY.md).
+
+The base `compose.yaml` runs an offline worker. Cloud insights require the explicit
+`compose.insights.yaml` override and provider credentials; see [deployment notes](docs/releasing.md).
+
+## Alpha resources
+
+- [Recipes, provider setup, and bounded custom schemas](docs/recipes.md)
+- [Runnable examples and authenticated HTTP calls](examples/README.md)
+- [Evaluation and pilot checklist](docs/evaluation.md)
+- [Checks run on this alpha candidate](docs/verification.md)
+- [Contributing](CONTRIBUTING.md), [security](SECURITY.md), [release checks](docs/releasing.md), and [changelog](CHANGELOG.md)
+
+Suoku source is Apache-2.0. The bundled sample has its own attribution and license.

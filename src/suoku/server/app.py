@@ -7,17 +7,21 @@ import hmac
 import os
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 import anyio
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ..insights.models import InsightAnswer, Observation
+from ..insights.recipes import recipes, resolve_recipe
+from ..insights.store import InsightStore
 from ..types import LakeError
 from .jobs import Jobs
 
@@ -90,17 +94,78 @@ class MatchBody(BaseModel):
 class JobResult(BaseModel):
     asset_id: str | None = None
     matches: list[MatchBody] | None = None
+    observations: list[Observation] | None = None
+    answer: InsightAnswer | None = None
 
 
 class JobBody(BaseModel):
     id: str
-    kind: Literal["ingest", "search", "remove", "purge"]
+    kind: Literal["ingest", "search", "remove", "purge", "analysis", "answer"]
     state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     progress: int
     result: JobResult | None = None
     error: ErrorBody | None = None
     created_at: float
     updated_at: float
+
+
+class RecipeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    version: str
+    name: str
+    description: str
+    prompt: str
+    schema_: dict = Field(alias="schema")
+
+
+class InsightRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    recipe: str | RecipeBody = "general"
+
+    @field_validator("recipe")
+    @classmethod
+    def valid_recipe(cls, value):
+        raw = value.model_dump(by_alias=True) if isinstance(value, RecipeBody) else value
+        try:
+            resolve_recipe(raw)
+        except LakeError as exc:
+            raise ValueError("Unsupported insight recipe") from exc
+        return value
+
+
+class AnalysisRequest(InsightRequest):
+    asset_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    start_ms: int = Field(default=0, ge=0, strict=True)
+    end_ms: int | None = Field(default=None, gt=0, strict=True)
+
+
+class AnswerRequest(InsightRequest):
+    question: str = Field(min_length=1, max_length=4096)
+    asset_ids: list[str] | None = Field(default=None, min_length=1, max_length=100)
+    filters: Filters = Field(default_factory=Filters)
+    candidate_limit: int = Field(default=6, ge=1, le=20, strict=True)
+
+    @field_validator("question")
+    @classmethod
+    def not_blank(cls, value):
+        if not value.strip():
+            raise ValueError("Question must not be blank")
+        return value
+
+    @field_validator("asset_ids")
+    @classmethod
+    def valid_ids(cls, value):
+        if value is not None and any(not re.fullmatch(r"[a-f0-9]{32}", v) for v in value):
+            raise ValueError("Invalid asset ID")
+        return value
+
+
+class StatusBody(BaseModel):
+    worker_available: bool
+    last_heartbeat: float | None
+    insight_model: str | None
+    insights_ready: bool
 
 
 def opaque_id(value: str) -> str:
@@ -138,11 +203,25 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.middleware("http")
     async def response_headers(request: Request, call_next):
+        if request.url.path in {"/v1/answers", "/v1/analyses"}:
+            data = bytearray()
+            async for chunk in request.stream():
+                data.extend(chunk)
+                if len(data) > 49152:
+                    return JSONResponse({"error": {"code": "request_too_large",
+                                        "message": "Insight request exceeds 48 KiB."}}, status_code=413)
+            request._body = bytes(data)
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         if request.url.path != "/healthz":
             response.headers.setdefault("Cache-Control", "no-store")
         return response
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        # FastAPI normally reflects invalid inputs, which can include an accidentally supplied key.
+        return JSONResponse({"error": {"code": "invalid_request",
+                            "message": "Invalid request fields; check the API schema."}}, status_code=422)
 
     @app.exception_handler(LakeError)
     async def lake_error(request: Request, exc: LakeError):
@@ -152,6 +231,37 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/healthz", operation_id="health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/v1/status", response_model=StatusBody, dependencies=[Depends(authenticate)],
+             operation_id="getStatus")
+    def status():
+        return jobs.worker_status()
+
+    @app.get("/v1/insight-recipes", response_model=list[RecipeBody],
+             dependencies=[Depends(authenticate)], operation_id="getRecipes")
+    def insight_recipes():
+        return [asdict(recipe) for recipe in recipes()]
+
+    @app.post("/v1/analyses", status_code=202, response_model=JobBody,
+              dependencies=[Depends(authenticate)], operation_id="analyzeVideo")
+    def analyze(body: AnalysisRequest):
+        jobs.upload(body.asset_id)
+        if body.end_ms is not None and body.end_ms <= body.start_ms:
+            raise HTTPException(422, "End must follow start.")
+        return jobs.submit("analysis", body.model_dump(by_alias=True), capacity=settings.max_queued_jobs)
+
+    @app.post("/v1/answers", status_code=202, response_model=JobBody,
+              dependencies=[Depends(authenticate)], operation_id="answerQuestion")
+    def answer(body: AnswerRequest):
+        for identifier in body.asset_ids or []:
+            jobs.upload(identifier)
+        return jobs.submit("answer", body.model_dump(by_alias=True), capacity=settings.max_queued_jobs)
+
+    @app.get("/v1/videos/{asset_id}/observations", response_model=list[Observation],
+             dependencies=[Depends(authenticate)], operation_id="getObservations")
+    def observations(asset_id: str, recipe: str | None = Query(default=None, max_length=64)):
+        jobs.upload(opaque_id(asset_id))
+        return InsightStore.read_visible(root / "index", asset_id, recipe=recipe)
 
     @app.get("/openapi.json", dependencies=[Depends(authenticate)], include_in_schema=False)
     def schema():

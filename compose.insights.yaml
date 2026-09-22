@@ -1,0 +1,11 @@
+# Explicit opt-in to external provider requests. The API never receives provider keys.
+# Export operator credentials, or use the protected-config launcher in docs/releasing.md.
+# docker compose -f compose.yaml -f compose.insights.yaml up --build
+services:
+  worker:
+    build:
+      target: insights-worker
+    network_mode: bridge
+    environment:
+      SUOKU_INSIGHT_MODEL: ${SUOKU_INSIGHT_MODEL:?Run suoku init and select a vision model}
+      SUOKU_PROVIDER_API_KEY: ${SUOKU_PROVIDER_API_KEY:?Run suoku init and supply your provider key}

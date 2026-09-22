@@ -21,6 +21,207 @@
         }
       }
     },
+    "/v1/status": {
+      "get": {
+        "summary": "Status",
+        "operationId": "getStatus",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/insight-recipes": {
+      "get": {
+        "summary": "Insight Recipes",
+        "operationId": "getRecipes",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecipeBody"
+                  },
+                  "type": "array",
+                  "title": "Response Getrecipes"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/analyses": {
+      "post": {
+        "summary": "Analyze",
+        "operationId": "analyzeVideo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/answers": {
+      "post": {
+        "summary": "Answer",
+        "operationId": "answerQuestion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/videos/{asset_id}/observations": {
+      "get": {
+        "summary": "Observations",
+        "operationId": "getObservations",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            }
+          },
+          {
+            "name": "recipe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recipe"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Observation"
+                  },
+                  "title": "Response Getobservations"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/videos": {
       "post": {
         "summary": "Upload",
@@ -373,6 +574,138 @@
   },
   "components": {
     "schemas": {
+      "AnalysisRequest": {
+        "properties": {
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeBody"
+              }
+            ],
+            "title": "Recipe",
+            "default": "general"
+          },
+          "asset_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Asset Id"
+          },
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start Ms",
+            "default": 0
+          },
+          "end_ms": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "asset_id"
+        ],
+        "title": "AnalysisRequest"
+      },
+      "AnswerRequest": {
+        "properties": {
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeBody"
+              }
+            ],
+            "title": "Recipe",
+            "default": "general"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "asset_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 100,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Ids"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/Filters"
+          },
+          "candidate_limit": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Candidate Limit",
+            "default": 6
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AnswerRequest"
+      },
+      "Citation": {
+        "properties": {
+          "observation_id": {
+            "type": "string",
+            "title": "Observation Id"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "observation_id",
+          "asset_id",
+          "start_ms",
+          "end_ms",
+          "reason"
+        ],
+        "title": "Citation"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -445,6 +778,45 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "InsightAnswer": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "provider_fingerprint": {
+            "type": "string",
+            "title": "Provider Fingerprint"
+          },
+          "insufficient_evidence": {
+            "type": "boolean",
+            "title": "Insufficient Evidence",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "citations",
+          "limitations",
+          "provider_fingerprint"
+        ],
+        "title": "InsightAnswer"
+      },
       "JobBody": {
         "properties": {
           "id": {
@@ -457,7 +829,9 @@
               "ingest",
               "search",
               "remove",
-              "purge"
+              "purge",
+              "analysis",
+              "answer"
             ],
             "title": "Kind"
           },
@@ -542,6 +916,30 @@
               }
             ],
             "title": "Matches"
+          },
+          "observations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Observation"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observations"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InsightAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -602,6 +1000,118 @@
         ],
         "title": "MatchBody"
       },
+      "Observation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "source_hash": {
+            "type": "string",
+            "title": "Source Hash"
+          },
+          "start_ms": {
+            "type": "integer",
+            "title": "Start Ms"
+          },
+          "end_ms": {
+            "type": "integer",
+            "title": "End Ms"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "evidence_timestamps": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Evidence Timestamps"
+          },
+          "recipe_id": {
+            "type": "string",
+            "title": "Recipe Id"
+          },
+          "recipe_fingerprint": {
+            "type": "string",
+            "title": "Recipe Fingerprint"
+          },
+          "provider_fingerprint": {
+            "type": "string",
+            "title": "Provider Fingerprint"
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "asset_id",
+          "source_hash",
+          "start_ms",
+          "end_ms",
+          "summary",
+          "payload",
+          "evidence_timestamps",
+          "recipe_id",
+          "recipe_fingerprint",
+          "provider_fingerprint",
+          "prompt_version"
+        ],
+        "title": "Observation"
+      },
+      "RecipeBody": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Schema"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "name",
+          "description",
+          "prompt",
+          "schema"
+        ],
+        "title": "RecipeBody"
+      },
       "SearchRequest": {
         "properties": {
           "query": {
@@ -627,6 +1137,48 @@
           "query"
         ],
         "title": "SearchRequest"
+      },
+      "StatusBody": {
+        "properties": {
+          "worker_available": {
+            "type": "boolean",
+            "title": "Worker Available"
+          },
+          "last_heartbeat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heartbeat"
+          },
+          "insight_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insight Model"
+          },
+          "insights_ready": {
+            "type": "boolean",
+            "title": "Insights Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "worker_available",
+          "last_heartbeat",
+          "insight_model",
+          "insights_ready"
+        ],
+        "title": "StatusBody"
       },
       "ValidationError": {
         "properties": {

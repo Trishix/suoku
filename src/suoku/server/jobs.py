@@ -31,6 +31,11 @@ class Jobs:
                     id TEXT PRIMARY KEY, suffix TEXT NOT NULL, size INTEGER NOT NULL,
                     state TEXT NOT NULL DEFAULT 'pending'
                 );
+                CREATE TABLE IF NOT EXISTS worker_status (
+                    id INTEGER PRIMARY KEY CHECK(id=1), owner TEXT NOT NULL,
+                    heartbeat REAL NOT NULL, model TEXT, insights INTEGER NOT NULL,
+                    active INTEGER NOT NULL
+                );
             """)
 
     @contextmanager
@@ -78,7 +83,12 @@ class Jobs:
     def get(self, identifier: str, *, internal=False) -> dict:
         with self.connect() as db:
             row = db.execute("SELECT * FROM jobs WHERE id=?", (identifier,)).fetchone()
-            if not row or (row["kind"] == "search" and row["created_at"] < time.time() - 3600):
+            expired = row and (
+                (row["kind"] == "search" and row["created_at"] < time.time() - 3600)
+                or (row["kind"] in {"answer", "analysis"} and row["state"] in TERMINAL
+                    and row["updated_at"] < time.time() - 3600)
+            )
+            if not row or expired:
                 raise LakeError("not_found", "Job does not exist or has expired.")
         result = dict(row)
         for key in ("payload", "result", "error"):
@@ -166,5 +176,52 @@ class Jobs:
     def expire(self):
         with self.connect() as db:
             db.execute(
-                "DELETE FROM jobs WHERE kind='search' AND created_at<?", (time.time() - 3600,)
+                "DELETE FROM jobs WHERE (kind='search' AND created_at<?) OR "
+                "(kind IN ('answer','analysis') AND state IN ('succeeded','failed','cancelled') "
+                "AND updated_at<?)",
+                (time.time() - 3600, time.time() - 3600),
             )
+
+    def start_worker(self, owner, model, insights):
+        with self.connect() as db:
+            db.execute("INSERT OR REPLACE INTO worker_status VALUES(1,?,?,?,?,1)",
+                       (owner, time.time(), model, int(insights)))
+
+    def heartbeat(self, owner):
+        with self.connect() as db:
+            db.execute("UPDATE worker_status SET heartbeat=? WHERE owner=? AND active=1",
+                       (time.time(), owner))
+
+    def stop_worker(self, owner):
+        with self.connect() as db:
+            db.execute("UPDATE worker_status SET active=0 WHERE owner=?", (owner,))
+
+    def worker_status(self):
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM worker_status WHERE id=1").fetchone()
+        available = bool(row and row["active"] and 0 <= time.time() - row["heartbeat"] < 15)
+        return {"worker_available": available,
+                "last_heartbeat": row["heartbeat"] if row else None,
+                "insight_model": row["model"] if row else None,
+                "insights_ready": bool(available and row["insights"])}
+
+    def invalidate_insights(self, asset_id):
+        """Do not expose stored answer/analysis copies after removing their source.
+
+        Citations are not complete dependency lists: an answer may reason over
+        uncited evidence. In this single-host alpha any source removal clears
+        all answer snapshots, including legacy jobs without dependency metadata.
+        Per-video observations and analysis results remain precisely scoped.
+        """
+        with self.connect() as db:
+            rows = db.execute("SELECT id,kind,result FROM jobs WHERE kind IN ('answer','analysis') "
+                              "AND result IS NOT NULL").fetchall()
+            for row in rows:
+                result = json.loads(row["result"]) or {}
+                records = result.get("observations", [])
+                if ((row["kind"] == "answer" and result.get("answer"))
+                        or any(record.get("asset_id") == asset_id for record in records)):
+                    db.execute("UPDATE jobs SET result=NULL,state='failed',error=? WHERE id=?",
+                               (json.dumps({"code": "source_removed", "message":
+                                            "A video was removed; rerun the query on remaining sources."}),
+                                row["id"]))

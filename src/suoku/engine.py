@@ -419,7 +419,8 @@ class VideoLake:
         yield IngestProgress(asset_id, processed, True)
 
     def search(
-        self, text: str, *, limit: int = 10, filters: SearchFilters | None = None
+        self, text: str, *, limit: int = 10, filters: SearchFilters | None = None,
+        asset_ids: list[str] | None = None,
     ) -> list[Match]:
         self._ensure_open()
         if not isinstance(text, str) or not text.strip() or len(text) > _MAX_TEXT:
@@ -430,6 +431,11 @@ class VideoLake:
             filters = SearchFilters()
         if not isinstance(filters, SearchFilters):
             raise LakeError("invalid_filters", "filters must be SearchFilters")
+        selected_ids = None
+        if asset_ids is not None:
+            if not isinstance(asset_ids, list) or not 1 <= len(asset_ids) <= 100:
+                raise LakeError("invalid_filters", "asset_ids must contain 1 to 100 asset IDs")
+            selected_ids = {_asset_id(value) for value in asset_ids}
         camera = _camera_id(filters.camera_id)
         _, after_ms = _recorded_at(filters.recorded_after, field="recorded_after")
         _, before_ms = _recorded_at(filters.recorded_before, field="recorded_before")
@@ -439,6 +445,8 @@ class VideoLake:
         clauses: list[str] = []
         selected = []
         for generation in generations:
+            if selected_ids is not None and generation["asset_id"] not in selected_ids:
+                continue
             if camera is not None and generation["camera_id"] != camera:
                 continue
             recorded_ms = generation["recorded_at_ms"]
@@ -538,4 +546,13 @@ class VideoLake:
         ]
         for generation_id in generation_ids:
             self._table.delete(f"generation_id = '{generation_id}'")
+        insights = self.path / "insights.sqlite3"
+        if insights.is_file():
+            import sqlite3
+            db = sqlite3.connect(insights)
+            try:
+                with db:
+                    db.execute("DELETE FROM observations WHERE asset_id=?", (asset_id,))
+            finally:
+                db.close()
         self.catalog.purge(asset_id)

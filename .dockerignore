@@ -7,4 +7,9 @@
 **/__pycache__
 **/dist
 .env
-
+.env.*
+.suoku
+build
+dist
+tests
+examples

@@ -1,4 +1,4 @@
-"""Local HTTP integration fixture: real API/worker/decoder/storage, fake embedding only."""
+"""Real HTTP/worker/decoder/storage; deterministic embedding and insight providers."""
 
 import json
 import socket
@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 import uvicorn
-from fakes import ColorEmbedder
+from fakes import ColorEmbedder, ColorInsightProvider
 
 from suoku.server.app import Settings, create_app
 from suoku.server.worker import Worker
@@ -20,7 +20,7 @@ stop = threading.Event()
 
 
 def run_worker():
-    worker = Worker(directory, ColorEmbedder())
+    worker = Worker(directory, ColorEmbedder(), provider=ColorInsightProvider())
     ready.set()
     try:
         while not stop.is_set():

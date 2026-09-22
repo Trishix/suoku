@@ -4,6 +4,26 @@ export type Job = components["schemas"]["JobBody"];
 export type Match = components["schemas"]["MatchBody"];
 export type SearchRequest = components["schemas"]["SearchRequest"];
 export type Filters = components["schemas"]["Filters"];
+export type Recipe = components["schemas"]["RecipeBody"];
+export type Observation = components["schemas"]["Observation"];
+export type InsightAnswer = components["schemas"]["InsightAnswer"];
+export type Status = components["schemas"]["StatusBody"];
+
+/** Millisecond ranges and recipes accepted by the analysis endpoint. */
+export interface AnalysisOptions {
+  recipe?: components["schemas"]["AnalysisRequest"]["recipe"];
+  startMs?: components["schemas"]["AnalysisRequest"]["start_ms"];
+  endMs?: components["schemas"]["AnalysisRequest"]["end_ms"];
+  signal?: AbortSignal;
+}
+
+export interface AnswerOptions {
+  recipe?: components["schemas"]["AnswerRequest"]["recipe"];
+  assetIds?: components["schemas"]["AnswerRequest"]["asset_ids"];
+  filters?: components["schemas"]["AnswerRequest"]["filters"];
+  candidateLimit?: components["schemas"]["AnswerRequest"]["candidate_limit"];
+  signal?: AbortSignal;
+}
 
 export class LakeClientError extends Error {
   constructor(public readonly code: string, message: string, public readonly status?: number) {
@@ -79,6 +99,62 @@ export class VideoLakeClient {
     return this.request("/v1/search", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, limit: options.limit ?? 10, filters: options.filters ?? {} }), signal: options.signal,
+    });
+  }
+
+  status(options: { signal?: AbortSignal } = {}): Promise<Status> {
+    return this.request("/v1/status", { signal: options.signal });
+  }
+
+  recipes(options: { signal?: AbortSignal } = {}): Promise<Recipe[]> {
+    return this.request("/v1/insight-recipes", { signal: options.signal });
+  }
+
+  submitAnalysis(assetId: string, options: AnalysisOptions = {}): Promise<Job> {
+    const body: components["schemas"]["AnalysisRequest"] = {
+      asset_id: identifier(assetId), recipe: options.recipe ?? "general",
+      start_ms: options.startMs ?? 0, end_ms: options.endMs,
+    };
+    return this.request("/v1/analyses", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body), signal: options.signal,
+    });
+  }
+
+  async analyze(assetId: string, options: AnalysisOptions & WaitOptions = {}): Promise<Observation[]> {
+    const job = await this.submitAnalysis(assetId, options);
+    const completed = await this.wait(job, options);
+    if (!completed.result?.observations) {
+      throw new LakeClientError("invalid_response", "Analysis job returned no observations result.");
+    }
+    return completed.result.observations;
+  }
+
+  submitAnswer(question: string, options: AnswerOptions = {}): Promise<Job> {
+    const body: components["schemas"]["AnswerRequest"] = {
+      question, recipe: options.recipe ?? "general", asset_ids: options.assetIds?.map(identifier),
+      filters: options.filters ?? {}, candidate_limit: options.candidateLimit ?? 6,
+    };
+    return this.request("/v1/answers", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body), signal: options.signal,
+    });
+  }
+
+  async ask(question: string, options: AnswerOptions & WaitOptions = {}): Promise<InsightAnswer> {
+    const job = await this.submitAnswer(question, options);
+    const completed = await this.wait(job, options);
+    if (!completed.result?.answer) {
+      throw new LakeClientError("invalid_response", "Answer job returned no answer result.");
+    }
+    return completed.result.answer;
+  }
+
+  observations(assetId: string, options: { recipe?: string; signal?: AbortSignal } = {}): Promise<Observation[]> {
+    const query = new URLSearchParams();
+    if (options.recipe !== undefined) query.set("recipe", options.recipe);
+    return this.request(`/v1/videos/${identifier(assetId)}/observations${query.size ? `?${query}` : ""}`, {
+      signal: options.signal,
     });
   }
 

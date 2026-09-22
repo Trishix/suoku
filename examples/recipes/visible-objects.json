@@ -1,0 +1,37 @@
+{
+  "id": "visible-objects",
+  "version": "1",
+  "name": "Visible objects",
+  "description": "Describe clearly visible objects and visibility limits in sampled frames.",
+  "prompt": "Report only objects clearly visible in these frames. Do not infer identity, intent, events between frames, or objects hidden from view. Use unknown when category is unclear. Explain uncertainty in limitations.",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "summary": { "type": "string", "maxLength": 1000 },
+      "objects": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "label": { "type": "string", "maxLength": 120 },
+            "category": {
+              "type": "string",
+              "enum": ["person", "animal", "vehicle", "vegetation", "structure", "other", "unknown"]
+            },
+            "visibility": { "type": "string", "enum": ["clear", "partial", "uncertain"] }
+          },
+          "required": ["label", "category", "visibility"]
+        }
+      },
+      "limitations": {
+        "type": "array",
+        "maxItems": 10,
+        "items": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "required": ["summary", "objects", "limitations"]
+  }
+}
