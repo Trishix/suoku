@@ -28,6 +28,21 @@ behavior, not semantic accuracy. Never make ordinary tests download models or ca
 
 ## Changes and review
 
+### Code map
+
+- `src/suoku/engine.py`, `catalog.py`, and `media.py`: local ingestion and retrieval.
+- `src/suoku/insights/`: recipes, evidence extraction, validated observations, caching,
+  and grounded answers.
+- `src/suoku/providers.py`: isolated BYOK LiteLLM adapter; provider SDKs stay out of the API.
+- `src/suoku/server/`: authenticated FastAPI routes, durable jobs, and the worker.
+- `src/suoku/cli.py`, `config.py`, and `diagnostics.py`: operator setup and diagnostics.
+- `packages/client/`: generated TypeScript types and server-side HTTP client.
+- `docs/`: user, integration, security, evaluation, and release guidance.
+
+When behavior changes, update the nearest user guide as well as code comments. New HTTP
+routes require an OpenAPI regeneration and a client/example update. New persistent fields
+need a migration or additive-compatibility explanation.
+
 Describe the concrete problem, resulting behavior, and relevant verification. Preserve
 source/model/recipe fingerprints and generation activation semantics. Persistence changes
 need recovery coverage; cache changes need invalidation coverage. Provider behavior should

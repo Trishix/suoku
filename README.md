@@ -75,6 +75,17 @@ it is not a real-world surveillance or safety dataset.
 
 ## Use it in code
 
+There are two integration modes:
+
+- Use `VideoLake` and `InsightEngine` directly in a trusted Python process when you want
+  local control and do not need an HTTP boundary.
+- Run `suoku serve` and `suoku worker`, then call the authenticated service from your
+  application backend with the TypeScript client or any HTTP client. This is the recommended
+  web-application shape; keep `SUOKU_API_TOKEN` and provider keys out of browser code.
+
+The [web-app integration guide](docs/web-app-integration.md) includes a backend example,
+browser upload pattern, authorization guidance, and job/error handling.
+
 The [complete Python example](examples/insights.py) ingests the sample, asks a question,
 runs a recipe, prints dataclass results as JSON, and displays local playback references:
 
@@ -125,6 +136,12 @@ The base `compose.yaml` runs an offline worker. Cloud insights require the expli
 
 ## Alpha resources
 
+- [Documentation index](docs/README.md)
+- [Architecture and data flow](docs/architecture.md)
+- [Web-app integration](docs/web-app-integration.md)
+- [HTTP API reference](docs/api.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Configuration reference](docs/configuration.md)
 - [Recipes, provider setup, and bounded custom schemas](docs/recipes.md)
 - [Runnable examples and authenticated HTTP calls](examples/README.md)
 - [Evaluation and pilot checklist](docs/evaluation.md)

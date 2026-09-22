@@ -1,4 +1,9 @@
-# Internal integration contracts
+# Integration contracts
+
+This file describes the stable implementation boundaries used by the Python package and
+service. For application-facing HTTP examples, see [api.md](api.md); for a conceptual
+overview, see [architecture.md](architecture.md). Internal names may evolve during the
+alpha, so clients should prefer the generated OpenAPI schema and public client methods.
 
 Python package: suoku. All times milliseconds, source timestamps relative to the first video presentation timestamp. Errors: LakeError(code, message), exposed code and safe message. Custom adapters execute trusted application code.
 
