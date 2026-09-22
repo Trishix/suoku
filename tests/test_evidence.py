@@ -1,3 +1,5 @@
+"""Evidence decoder tests for real timestamps, bounds, aspect ratio, and failures."""
+
 import shutil
 import subprocess
 import sys

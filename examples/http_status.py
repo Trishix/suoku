@@ -9,6 +9,7 @@ from suoku.config import load_config
 
 
 class NoRedirect(HTTPRedirectHandler):
+    # Do not silently send bearer credentials to a different host after a redirect.
     def redirect_request(self, request, fp, code, message, headers, newurl):
         return None
 

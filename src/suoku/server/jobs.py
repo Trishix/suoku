@@ -13,6 +13,9 @@ from ..types import LakeError
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
 
+# Jobs are persisted before a worker sees them, allowing a process restart to recover
+# queued work. Result payloads are cleared after completion of destructive source removal.
+
 
 class Jobs:
     def __init__(self, directory: Path):

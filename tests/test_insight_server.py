@@ -1,3 +1,5 @@
+"""Authenticated HTTP/worker integration tests for insight jobs and deletion."""
+
 import threading
 import time
 

@@ -1,3 +1,9 @@
+"""Local archived-video ingestion and semantic retrieval.
+
+This module owns the durable media/catalog/vector-index boundary. Optional insight
+reasoning is layered on top and must use the matches returned here as candidates.
+"""
+
 from __future__ import annotations
 
 import hashlib

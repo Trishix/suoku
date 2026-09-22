@@ -1,3 +1,5 @@
+"""Engine-level tests for recipes, citations, schemas, and observation visibility."""
+
 import dataclasses
 import json
 

@@ -1,4 +1,9 @@
-"""Authenticated transport only: models and decoder never run in the API process."""
+"""FastAPI boundary for authenticated uploads, jobs, retrieval, and insights.
+
+The API validates and queues work only; decoding, embeddings, and provider calls stay
+in the worker process so credentials and heavyweight runtimes are not loaded here.
+Models and decoders never run in the API process.
+"""
 
 from __future__ import annotations
 

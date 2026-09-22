@@ -1,3 +1,5 @@
+"""Small shared data contracts used by retrieval, decoding, and adapters."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

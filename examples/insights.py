@@ -17,6 +17,9 @@ from suoku.config import load_config
 from suoku.insights import InsightEngine
 from suoku.providers import LiteLLMProvider
 
+# This example intentionally uses the same public engine API as an application would;
+# its generated lake is disposable and kept outside the repository's main .lake.
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)

@@ -16,6 +16,9 @@ from PIL import Image
 
 from .types import Frame, LakeError, MediaInfo
 
+# Decoder subprocesses are bounded for output and time, but callers must still treat
+# them as trusted local utilities rather than a complete security sandbox.
+
 
 class FFmpegReader:
     def __init__(

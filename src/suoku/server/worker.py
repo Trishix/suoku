@@ -16,6 +16,9 @@ from .jobs import Jobs
 
 logger = logging.getLogger(__name__)
 
+# A single worker owns model execution. The heartbeat is independent of provider
+# latency so the API can distinguish a live worker from a merely configured one.
+
 
 class Worker:
     def __init__(self, data_dir: Path, embedder, *, reader=None, provider=None, extractor=None):

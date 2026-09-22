@@ -13,6 +13,8 @@ PROMPTS = ["a solid {color} background", "a {color} screen", "the color {color}"
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", type=Path)
 args = parser.parse_args()
+# The generated corpus is synthetic and redistributable, making local smoke tests
+# reproducible without shipping private or copyrighted surveillance footage.
 args.directory.mkdir(parents=True, exist_ok=True)
 queries = []
 for color in COLORS:

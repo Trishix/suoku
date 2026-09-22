@@ -8,6 +8,9 @@ from pathlib import Path
 
 from .models import Observation, canonical
 
+# SQLite connections are short-lived because API readers and the worker may operate
+# concurrently. WAL mode is enabled by connect() for safe local readers.
+
 
 class InsightStore:
     def __init__(self, directory: Path):

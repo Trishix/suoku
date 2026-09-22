@@ -1,5 +1,6 @@
 services:
   api:
+    # The API accepts authenticated requests but delegates all model work to worker.
     build:
       context: .
       target: api
@@ -16,6 +17,7 @@ services:
     pids_limit: 64
     restart: unless-stopped
   worker:
+    # Offline by default: use compose.insights.yaml only after reviewing provider egress.
     build:
       context: .
       target: worker

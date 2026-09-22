@@ -1,4 +1,8 @@
-"""Evaluate a prepared local model against labeled media; emits actual JSON measurements."""
+"""Evaluate a prepared local model against labeled media; emits actual JSON measurements.
+
+This script measures retrieval behavior only. It does not claim semantic accuracy or
+represent a surveillance benchmark.
+"""
 import argparse
 import json
 import platform

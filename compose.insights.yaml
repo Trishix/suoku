@@ -3,6 +3,7 @@
 # docker compose -f compose.yaml -f compose.insights.yaml up --build
 services:
   worker:
+    # Only this override enables provider network access; the API still receives no key.
     build:
       target: insights-worker
     network_mode: bridge

@@ -8,6 +8,9 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { VideoLakeClient } from "../packages/client/dist/index.js";
 
+// Keep the service token in the local process. Browser code should call an application
+// backend instead of exposing this deployment-wide credential.
+
 function configuration() {
   if (process.env.SUOKU_API_TOKEN) return process.env;
   // Reuse Suoku's parser, without shell evaluation or printing the secret mapping.

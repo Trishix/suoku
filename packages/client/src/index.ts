@@ -1,3 +1,7 @@
+/**
+ * Typed, dependency-free client for the authenticated Suoku HTTP API.
+ * The implementation keeps bearer tokens in memory and never puts them in URLs.
+ */
 import type { components } from "./schema.js";
 
 export type Job = components["schemas"]["JobBody"];

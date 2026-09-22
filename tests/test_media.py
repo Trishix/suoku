@@ -1,3 +1,5 @@
+"""Subprocess media reader tests with bounded output and decoder failures."""
+
 import shutil
 import subprocess
 

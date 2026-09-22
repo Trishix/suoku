@@ -1,3 +1,5 @@
+"""Core ingestion, retrieval, source-integrity, and lifecycle tests."""
+
 from __future__ import annotations
 
 from pathlib import Path

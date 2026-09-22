@@ -14,6 +14,9 @@ from ..types import LakeError
 
 PROMPT_VERSION = "suoku-observations-v1"
 
+# Fingerprints are part of cache identity: changing prompts, schemas, or providers
+# must never silently reuse observations produced under different semantics.
+
 
 def canonical(value: object) -> str:
     try:

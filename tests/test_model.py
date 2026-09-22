@@ -1,3 +1,5 @@
+"""Opt-in local SigLIP loading and embedding smoke tests."""
+
 import json
 import os
 

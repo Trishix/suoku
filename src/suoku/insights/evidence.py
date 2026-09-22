@@ -15,6 +15,9 @@ from PIL import Image
 
 from ..types import LakeError
 
+# Evidence windows are deliberately small and uncropped: preserving full-frame context
+# makes the timestamps reviewable and avoids hiding relevant content at the edges.
+
 
 def _bounded_run(command: list[str], limit: int, timeout: float) -> tuple[bytes, bytes]:
     """Drain both pipes while enforcing an actual read bound and wall deadline."""

@@ -33,6 +33,8 @@ ANSWER_SCHEMA = {
                 "reason": {"type": "string", "maxLength": 2000}}}},
     },
 }
+# The answer schema is intentionally stricter than a free-form chat response: every
+# citation must resolve to an observation supplied in the same reasoning request.
 SAMPLED_LIMITATION = (
     "This answer uses selected, sampled video windows. It is not an exhaustive review; "
     "unseen events and precise durations cannot be established from these frames."

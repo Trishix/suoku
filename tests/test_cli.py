@@ -1,3 +1,5 @@
+"""CLI/configuration tests, including secret handling and bounded HTTP behavior."""
+
 import hashlib
 import io
 import json

@@ -1,3 +1,5 @@
+"""Base authenticated API and durable-job integration tests."""
+
 import time
 
 import pytest

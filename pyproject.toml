@@ -17,6 +17,7 @@ Issues = "https://github.com/Trishix/suoku/issues"
 Documentation = "https://github.com/Trishix/suoku#readme"
 
 [project.optional-dependencies]
+# Keep local embeddings, the service, and BYOK insights independently installable.
 local = ["transformers>=4.49,<5", "torch>=2.6,<3", "safetensors>=0.5,<1", "sentencepiece>=0.2,<1", "protobuf>=5,<7"]
 server = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "jsonschema>=4.23,<5"]
 insights = ["litellm==1.102.0", "jsonschema>=4.23,<5"]

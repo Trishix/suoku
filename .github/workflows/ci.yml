@@ -4,6 +4,7 @@ permissions:
   contents: read
 jobs:
   python:
+    # Exercise supported interpreter families while keeping paid provider calls opt-in.
     strategy:
       matrix:
         include:

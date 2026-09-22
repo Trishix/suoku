@@ -13,6 +13,9 @@ from ..types import Frame, LakeError
 
 MODEL_ID = "google/siglip-base-patch16-224"
 
+# The revision is supplied by the operator during preparation; runtime loading
+# accepts only a local manifest with matching hashes and never downloads weights.
+
 
 def file_hash(path: Path) -> str:
     digest = hashlib.sha256()

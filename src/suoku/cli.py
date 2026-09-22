@@ -1,3 +1,9 @@
+"""User-facing command line entry point.
+
+The CLI intentionally owns configuration loading and HTTP polling. It never forwards
+provider credentials in API job payloads; the worker reads those credentials locally.
+"""
+
 from __future__ import annotations
 
 import argparse

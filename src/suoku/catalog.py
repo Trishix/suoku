@@ -1,9 +1,17 @@
+"""SQLite catalog for asset identity, ingestion state, and source metadata.
+
+The catalog is deliberately separate from the vector index: it is the authoritative
+place to decide whether media is ready, active, or safe to expose to insight jobs.
+"""
+
 from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
 from typing import Any
 
+# Keep schema creation idempotent so an existing local lake can be opened after an
+# upgrade without a destructive migration step.
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;

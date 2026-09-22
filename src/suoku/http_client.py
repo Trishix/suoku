@@ -16,6 +16,9 @@ from pathlib import Path
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 
+# Keep this client dependency-light so the CLI can diagnose a missing server without
+# importing FastAPI or any model stack.
+
 
 class ClientError(ValueError):
     def __init__(self, code: str, message: str):
