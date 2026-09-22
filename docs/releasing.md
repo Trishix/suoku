@@ -5,8 +5,9 @@ Python `0.1.0a1`, npm `0.1.0-alpha.1`. These are local artifact versions, not ev
 the names are registered or published. Documentation uses source installation until a
 maintainer verifies registry ownership and installs the intended published artifacts.
 
-See the [dated verification record](verification.md) for checks actually run on this candidate
-and the checks still requiring provider credentials, a target container host, or maintainer access.
+Run and record the checks below for the release you are preparing. Do not copy results from a
+different machine, model, provider account, or commit; release evidence must describe the exact
+artifact and environment that was tested.
 
 ## Reproducible local artifacts
 

@@ -134,18 +134,20 @@ different retention effects; see [SECURITY.md](SECURITY.md).
 The base `compose.yaml` runs an offline worker. Cloud insights require the explicit
 `compose.insights.yaml` override and provider credentials; see [deployment notes](docs/releasing.md).
 
-## Alpha resources
+## Contributor resources
 
-- [Documentation index](docs/README.md)
+- [Contributor documentation index](docs/README.md)
+- [Contributing guide](CONTRIBUTING.md)
 - [Architecture and data flow](docs/architecture.md)
-- [Web-app integration](docs/web-app-integration.md)
 - [HTTP API reference](docs/api.md)
-- [Troubleshooting](docs/troubleshooting.md)
 - [Configuration reference](docs/configuration.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Web-app integration and client contract](docs/web-app-integration.md)
 - [Recipes, provider setup, and bounded custom schemas](docs/recipes.md)
 - [Runnable examples and authenticated HTTP calls](examples/README.md)
 - [Evaluation and pilot checklist](docs/evaluation.md)
-- [Checks run on this alpha candidate](docs/verification.md)
-- [Contributing](CONTRIBUTING.md), [security](SECURITY.md), [release checks](docs/releasing.md), and [changelog](CHANGELOG.md)
+- [Security policy](SECURITY.md)
+- [Release checks](docs/releasing.md)
+- [Changelog](CHANGELOG.md)
 
 Suoku source is Apache-2.0. The bundled sample has its own attribution and license.

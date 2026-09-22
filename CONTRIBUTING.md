@@ -37,7 +37,9 @@ behavior, not semantic accuracy. Never make ordinary tests download models or ca
 - `src/suoku/server/`: authenticated FastAPI routes, durable jobs, and the worker.
 - `src/suoku/cli.py`, `config.py`, and `diagnostics.py`: operator setup and diagnostics.
 - `packages/client/`: generated TypeScript types and server-side HTTP client.
-- `docs/`: user, integration, security, evaluation, and release guidance.
+- `docs/`: contributor-facing architecture, contracts, integration, security, evaluation,
+  troubleshooting, and release guidance. Temporary implementation plans and dated local
+  verification reports do not belong in the repository.
 
 When behavior changes, update the nearest user guide as well as code comments. New HTTP
 routes require an OpenAPI regeneration and a client/example update. New persistent fields
