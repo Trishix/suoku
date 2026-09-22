@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0a2 — unreleased
+
+- Correct Python distribution metadata for the Apache-2.0 license, homepage, keywords,
+  classifiers, and license file included in the wheel and source archive.
+
 ## 0.1.0a1 / 0.1.0-alpha.1 — unreleased
 
 First open-source alpha candidate. The Python and npm version spellings refer to the

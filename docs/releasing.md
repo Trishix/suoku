@@ -1,9 +1,8 @@
 # Building and releasing the alpha
 
 Repository: [Trishix/suoku](https://github.com/Trishix/suoku). Current version spellings:
-Python `0.1.0a1`, npm `0.1.0-alpha.1`. These are local artifact versions, not evidence that
-the names are registered or published. Documentation uses source installation until a
-maintainer verifies registry ownership and installs the intended published artifacts.
+Python `0.1.0a2`, npm `0.1.0-alpha.1`. The Python `0.1.0a1` and npm alpha package are
+published; verify registry metadata and installation before announcing a new release.
 
 Run and record the checks below for the release you are preparing. Do not copy results from a
 different machine, model, provider account, or commit; release evidence must describe the exact
